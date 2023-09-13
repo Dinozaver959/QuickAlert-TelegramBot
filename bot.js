@@ -1,13 +1,13 @@
-/*
-    THIS FILE IS FOR BOT SERVER - ALLOWING USERS TO INTERACT WITH THE BOT AND CUSTOMIZE IT
-*/
+
+//    THIS FILE IS FOR BOT SERVER - ALLOWING USERS TO INTERACT WITH THE BOT AND CUSTOMIZE IT
+
 
 require("dotenv").config();
 const TelegramBot = require('node-telegram-bot-api');
 const {TELEGRAM_BOT_TOKEN} = process.env;
 const bot = new TelegramBot(TELEGRAM_BOT_TOKEN, {polling: true});
 
-const {initializeDatabase, updateUserChoice, getUserChoice, addWalletToTrack, removeWalletFromTracking, getAllWallets, getAllWalletsOfAGroup, getAllFromTable, checkIfGroupTracksWallet} = require("./db");
+const {initializeDatabase, addWalletToTrack, removeWalletFromTracking, getAllWallets, getAllWalletsOfAGroup, getAllFromTable, checkIfGroupTracksWallet} = require("./db");
 const {isValidEthereumAddress} = require("./auxFunctions");
 const {updateNotification} = require("./quickalerts");
 
@@ -25,30 +25,72 @@ bot.onText(/\/start/, (msg) => {
 bot.onText(/\/addwallet/, (msg) => {
 
     console.log(msg)
+    const textParts = msg.text.split(" ");
 
-    const walletAddress = msg.text.split(" ")[1].toLowerCase();
-    console.log(walletAddress)
-
-    if(!isValidEthereumAddress(walletAddress)){
-        bot.sendMessage(msg.chat.id, "Invalid ethereum address!");
+    if(textParts[1] && textParts[1].length > 0){
+        const walletAddress = textParts[1].toLowerCase();
+        console.log(walletAddress)
+    
+        if(!isValidEthereumAddress(walletAddress)){
+            bot.sendMessage(msg.chat.id, "Invalid ethereum address!\nFormat:  /addwallet <address>");
+        } else {
+    
+            // check if this group already tracks the wallet
+            checkIfGroupTracksWallet(msg.chat.id, walletAddress, (alreadyTracks) => {
+    
+                if(alreadyTracks){
+                    bot.sendMessage(msg.chat.id, `already tracking this wallet`);
+                } else {
+    
+                    addWalletToTrack(walletAddress, msg.from.id, msg.chat.id, () => {
+                        console.log(`${walletAddress} added to DB`);
+                        bot.sendMessage(msg.chat.id, `${walletAddress} added to DB`);
+    
+                        getAllWallets((wallets) => {
+    
+                            updateNotification(wallets).then(updateStatus => {
+                                if (updateStatus) {
+                                    bot.sendMessage(msg.chat.id, `${walletAddress} will now be tracked`);
+                                } else {
+                                    bot.sendMessage(msg.chat.id, `alerts FAILED to update`);
+                                }
+                            }).catch(error => {
+                                console.error("Error updating notification:", error);
+                                bot.sendMessage(msg.chat.id, `alerts FAILED to update due to an error`);
+                            });
+                        })
+                    });
+                }
+            })
+        }
     } else {
+        bot.sendMessage(msg.chat.id, "Invalid ethereum address!\nFormat:  /addwallet <address>");
+    }
 
+});
+
+bot.onText(/\/removewallet/, (msg) => {
+
+    console.log(msg)
+    const textParts = msg.text.split(" ");
+
+    if(textParts[1] && textParts[1].length > 0){
+        const walletAddress = textParts[1].toLowerCase();
+        console.log(walletAddress)
+    
         // check if this group already tracks the wallet
         checkIfGroupTracksWallet(msg.chat.id, walletAddress, (alreadyTracks) => {
-
+        
             if(alreadyTracks){
-                bot.sendMessage(msg.chat.id, `already tracking this wallet`);
-            } else {
-
-                addWalletToTrack(walletAddress, msg.from.id, msg.chat.id, () => {
-                    console.log(`${walletAddress} added to DB`);
-                    bot.sendMessage(msg.chat.id, `${walletAddress} added to DB`);
+                removeWalletFromTracking(walletAddress, msg.chat.id, () => {
+                    console.log(`${walletAddress} removed from DB`);
+                    bot.sendMessage(msg.chat.id, `${walletAddress} removed from DB`);
 
                     getAllWallets((wallets) => {
 
                         updateNotification(wallets).then(updateStatus => {
                             if (updateStatus) {
-                                bot.sendMessage(msg.chat.id, `${walletAddress} will now be tracked`);
+                                bot.sendMessage(msg.chat.id, `${walletAddress} is no longer being tracked`);
                             } else {
                                 bot.sendMessage(msg.chat.id, `alerts FAILED to update`);
                             }
@@ -58,45 +100,13 @@ bot.onText(/\/addwallet/, (msg) => {
                         });
                     })
                 });
+            } else {
+                bot.sendMessage(msg.chat.id, `wasn't tracking this wallet anyway...`);
             }
         })
+    } else {
+        bot.sendMessage(msg.chat.id, "Invalid ethereum address!\nFormat:  /removewallet <address>");
     }
-
-});
-
-bot.onText(/\/removewallet/, (msg) => {
-
-    console.log(msg)
-
-    const walletAddress = msg.text.split(" ")[1].toLowerCase();
-    console.log(walletAddress)
-
-    // check if this group already tracks the wallet
-    checkIfGroupTracksWallet(msg.chat.id, walletAddress, (alreadyTracks) => {
-    
-        if(alreadyTracks){
-            removeWalletFromTracking(walletAddress, msg.chat.id, () => {
-                console.log(`${walletAddress} removed from DB`);
-                bot.sendMessage(msg.chat.id, `${walletAddress} removed from DB`);
-
-                getAllWallets((wallets) => {
-
-                    updateNotification(wallets).then(updateStatus => {
-                        if (updateStatus) {
-                            bot.sendMessage(msg.chat.id, `${walletAddress} is no longer being tracked`);
-                        } else {
-                            bot.sendMessage(msg.chat.id, `alerts FAILED to update`);
-                        }
-                    }).catch(error => {
-                        console.error("Error updating notification:", error);
-                        bot.sendMessage(msg.chat.id, `alerts FAILED to update due to an error`);
-                    });
-                })
-            });
-        } else {
-            bot.sendMessage(msg.chat.id, `wasn't tracking this wallet anyway...`);
-        }
-    })
 
 });
 
