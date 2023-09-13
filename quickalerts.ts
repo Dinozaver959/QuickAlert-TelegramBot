@@ -51,9 +51,9 @@ export async function updateNotification(addresses: any) {
         	headers: myHeaders,
         	redirect: 'follow',
         	body: JSON.stringify({
-        		name: 'Wallet Tracking Goerli',
+        		name: 'Wallet Tracking Mainnet', //'Wallet Tracking Goerli',
         		expression: encodedExpression,
-        		network: 'ethereum-goerli',
+        		network: 'ethereum-mainnet', //'ethereum-goerli',
         		destinationIds: [destinationId],
         	}),
         }

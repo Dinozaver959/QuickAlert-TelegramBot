@@ -38,8 +38,8 @@ app.post('/webhook', async (req: any, res: any) => {
   var tokenSymbol: string;
   var tokenDecimals: number = 0;
 
-  //const providerETH = new ethers.providers.JsonRpcProvider(`https://mainnet.infura.io/v3/${process.env.INFURA_API_KEY}`)
-  const provider = new ethers.providers.JsonRpcProvider(`https://goerli.infura.io/v3/${process.env.INFURA_API_KEY}`)
+  const provider = new ethers.providers.JsonRpcProvider(`https://mainnet.infura.io/v3/${process.env.INFURA_API_KEY}`)
+  //const provider = new ethers.providers.JsonRpcProvider(`https://goerli.infura.io/v3/${process.env.INFURA_API_KEY}`)
   console.log(req.body)
 
   // gather data
@@ -179,9 +179,9 @@ app.post('/webhook', async (req: any, res: any) => {
             ${ethValueDecFormatted} ETH
             ${tokenValueDecFormatted} $${tokenSymbol} \n
 
-            Tx: https://goerli.etherscan.io/tx/${tx_hash} \n
+            Tx: https://etherscan.io/tx/${tx_hash} \n
             token address: ${tokenAddress} \n
-            https://goerli.etherscan.io/address/${tokenAddress}
+            https://etherscan.io/address/${tokenAddress}
             `,
             {
               disable_web_page_preview: true
