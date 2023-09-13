@@ -131,4 +131,4 @@ dist
 
 
 # EXTRA
-userConfigs.db
+#userConfigs.db  # add DB anyway, so we can save a backup and restart it on another machine

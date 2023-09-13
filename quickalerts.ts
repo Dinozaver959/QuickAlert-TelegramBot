@@ -1,11 +1,15 @@
-const axios = require("axios");
-require("dotenv").config();
-const {QUICK_ALERT_API_KEY} = process.env;
+
+import axios from "axios";
+import * as dotenv from "dotenv";
+import { Address } from "./customTypes";
+dotenv.config();
+const QUICK_ALERT_API_KEY: string = process.env.QUICK_ALERT_API_KEY!;
+
 
 
 
 // update notification
-async function updateNotification(addresses) {
+export async function updateNotification(addresses: any) {
 
     console.log("addresses tp trackl:")
     console.log(addresses)
@@ -42,7 +46,7 @@ async function updateNotification(addresses) {
         myHeaders.append('x-api-key', QUICK_ALERT_API_KEY);
 
 
-        var requestOptions = {
+        var requestOptions: RequestInit = {
         	method: 'PATCH',
         	headers: myHeaders,
         	redirect: 'follow',
@@ -77,7 +81,7 @@ async function updateNotification(addresses) {
 }
 
 // update destination's webhook endpoint (when we run ngrok and get a new link)
-async function updateDestionationWebhook(destinationName, newWebhookUrl){
+export async function updateDestionationWebhook(destinationName: string, newWebhookUrl: string){
     // there is no update API, so what we have to do is first delete the old destination that has the same name and then create a new destination
 
     // get id of the destinationName
@@ -94,7 +98,7 @@ async function updateDestionationWebhook(destinationName, newWebhookUrl){
         myHeaders.append('accept', 'application/json')
         myHeaders.append('x-api-key', QUICK_ALERT_API_KEY)
         
-        var requestOptions = {
+        var requestOptions: RequestInit = {
             method: 'DELETE',
             headers: myHeaders,
             redirect: 'follow',
@@ -113,7 +117,7 @@ async function updateDestionationWebhook(destinationName, newWebhookUrl){
         }
     }
 
-
+    /*
     // create new destination
     try {
         const myHeaders = new Headers();
@@ -121,7 +125,7 @@ async function updateDestionationWebhook(destinationName, newWebhookUrl){
         myHeaders.append('Content-Type', 'application/json');
         myHeaders.append('x-api-key', QUICK_ALERT_API_KEY);
 
-        var requestOptions = {
+        var requestOptions: RequestInit = {
         	method: 'POST',
         	headers: myHeaders,
         	redirect: 'follow',
@@ -152,17 +156,18 @@ async function updateDestionationWebhook(destinationName, newWebhookUrl){
         console.log('error', error);
         return false;
     }
+    */
     
 }
 
 // get destinationId
-async function getDestinationIdByName(destinationName){
+export async function getDestinationIdByName(destinationName: string){
 
     var myHeaders = new Headers()
     myHeaders.append('accept', 'application/json')
     myHeaders.append('x-api-key', QUICK_ALERT_API_KEY)
     
-    var requestOptions = {
+    var requestOptions: RequestInit = {
     	method: 'GET',
     	headers: myHeaders,
     	redirect: 'follow',
@@ -186,13 +191,13 @@ async function getDestinationIdByName(destinationName){
 
 
 // get notifications
-async function getNotification(index){
+export async function getNotification(index: number){
 
     var myHeaders = new Headers()
     myHeaders.append('accept', 'application/json')
     myHeaders.append('x-api-key', QUICK_ALERT_API_KEY)
     
-    var requestOptions = {
+    var requestOptions: RequestInit = {
     	method: 'GET',
     	headers: myHeaders,
     	redirect: 'follow',
@@ -219,12 +224,12 @@ async function getNotification(index){
 }
 
 
-
+/*
 module.exports = {
     getDestinationIdByName,
     getNotification,
     updateNotification,
     updateDestionationWebhook
 };
-
+*/
 

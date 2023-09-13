@@ -2,18 +2,23 @@
 
 //  THIS FILE IS FOR THE NODE SERVER - RECEIVING QUICK ALERTS AND FORWARDING THEM TO TELEGRAM
 
+import { Address } from "./customTypes";
+import * as dotenv from "dotenv";
+dotenv.config();
+import express from "express";
+import { ethers } from "ethers";
+import TelegramBot from "node-telegram-bot-api";
+import ERC20ABI from './ABIs/ERC20.json'
 
+//import {getDestinationIdByName, updateNotification}  from "./quickalerts";
+import {getAllGroupsTrackingAWallet} from "./db";
+import {customFormat, AddCommasToNumericString} from "./auxFunctions";
 
-require("dotenv").config()
-const express = require("express")
-const ethers = require("ethers")
-const TelegramBot = require("node-telegram-bot-api")
-const ERC20ABI = require('./ABIs/ERC20.json')
-const {TELEGRAM_BOT_TOKEN, PORT} = process.env
+const TELEGRAM_BOT_TOKEN: string = process.env.TELEGRAM_BOT_TOKEN!;
+const PORT: string = process.env.PORT!;
 const bot = new TelegramBot(TELEGRAM_BOT_TOKEN)
-const {getDestinationIdByName, updateNotification} = require("./quickalerts")
-const {getAllGroupsTrackingAWallet} = require("./db")
-const {customFormat, AddCommasToNumericString} = require("./auxFunctions")
+
+
 
 
 const app = express();
@@ -23,17 +28,17 @@ app.use(express.json({limit: '50mb'}));   // need to increase the limit of paylo
 
 
 // We are receiving updates at the route below!
-app.post('/webhook', async (req, res) => {
+app.post('/webhook', async (req: any, res: any) => {
 
-  var buyBoolean;
-  var tokenAmount;
-  var ethAmount;
-  var tokenAddress;
-  var tokenName;
-  var tokenSymbol;
-  var tokenDecimals;
+  var buyBoolean: boolean = false;
+  var tokenAmount: number = 0;
+  var ethAmount: number = 0;
+  var tokenAddress: Address;
+  var tokenName: string;
+  var tokenSymbol: string;
+  var tokenDecimals: number = 0;
 
-  const providerETH = new ethers.providers.JsonRpcProvider(`https://mainnet.infura.io/v3/${process.env.INFURA_API_KEY}`)
+  //const providerETH = new ethers.providers.JsonRpcProvider(`https://mainnet.infura.io/v3/${process.env.INFURA_API_KEY}`)
   const provider = new ethers.providers.JsonRpcProvider(`https://goerli.infura.io/v3/${process.env.INFURA_API_KEY}`)
   console.log(req.body)
 
@@ -41,13 +46,13 @@ app.post('/webhook', async (req, res) => {
   const webhook = req.body;
   const matchedTransactions = webhook.matchedTransactions;
   const matchedReceipts = webhook.matchedReceipts;
-  const from = matchedTransactions[0].from;
-  const to = matchedTransactions[0].to;
+  const from = matchedTransactions[0].from.toLowerCase();
+  const to = matchedTransactions[0].to.toLowerCase();
   var walletObserved;
   const tx_hash = matchedTransactions[0].hash;
   const valueHex = matchedTransactions[0].value;
   const valueDex = parseInt(valueHex);
-  var ethValueDecFormatted;
+  var ethValueDecFormatted: string;
 
   const logs = matchedReceipts[0].logs;
   console.log(logs)
@@ -144,30 +149,31 @@ app.post('/webhook', async (req, res) => {
     } else {
 
       ethValueDecFormatted = ethers.utils.formatUnits(ethAmount.toString().slice(0,-12), 6)  // remove last 12 digits first - to overcome the overflow
-      //console.log(`ethValueDecFormatted:        ${ethValueDecFormatted}`)
+      console.log(`ethValueDecFormatted:        ${ethValueDecFormatted}`)
       var tokenValueDecFormatted = customFormat(tokenAmount, tokenDecimals)
-      //console.log(`tokenValueDecFormatted:      ${tokenValueDecFormatted}`)
+      console.log(`tokenValueDecFormatted:      ${tokenValueDecFormatted}`)
       tokenValueDecFormatted = AddCommasToNumericString(tokenValueDecFormatted)
-      //console.log(`tokenValueDecFormatted:      ${tokenValueDecFormatted}`)
+      console.log(`tokenValueDecFormatted:      ${tokenValueDecFormatted}`)
 
 
 
       // TELEGRAM NOTIFICATION
       
       // get all the groups tracking this walet, then send a message to each of these groups
-      walletObserved = (buyBoolean ?  from : to).toLowerCase();
-      getAllGroupsTrackingAWallet(walletObserved.trim(), (groups) => {
+      console.log(`wallet obaserved:   ${from}`)
+      getAllGroupsTrackingAWallet(from, (groups: any) => {
 
-        //console.log(groups)
+        console.log(`groups tracking the wallet:     ${groups}`)
 
         for(let i = 0; i < groups.length; i++){
 
           // Sends text to the each groupId
-          bot.sendMessage(groups[i].group_id,
+          bot.sendMessage(
+            groups[i].group_id,
             `
             ${buyBoolean ? "  🔥️️️️️️🔥️️️️️️🔥️️️️️️ TOKEN BUY 🔥️️️️️️🔥️️️️️️🔥️️️️️️" : "😭️️️️️️ TOKEN SELL 😭️️️️️️"}
 
-            ${buyBoolean ? `BUYER: ${from}` : `SELLER: ${to}`}
+            ${buyBoolean ? `BUYER: ${from}` : `SELLER: ${from}`}
 
             ${tokenName}($${tokenSymbol})\n
             ${ethValueDecFormatted} ETH
@@ -176,7 +182,10 @@ app.post('/webhook', async (req, res) => {
             Tx: https://goerli.etherscan.io/tx/${tx_hash} \n
             token address: ${tokenAddress} \n
             https://goerli.etherscan.io/address/${tokenAddress}
-            `
+            `,
+            {
+              disable_web_page_preview: true
+            }
           );   
 
         }

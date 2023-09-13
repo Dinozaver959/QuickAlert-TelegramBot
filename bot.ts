@@ -1,20 +1,30 @@
 
 //    THIS FILE IS FOR BOT SERVER - ALLOWING USERS TO INTERACT WITH THE BOT AND CUSTOMIZE IT
 
+import dotenv from 'dotenv';
+dotenv.config();
+import TelegramBot from 'node-telegram-bot-api';
+import { 
+    initializeDatabase, 
+    addWalletToTrack, 
+    removeWalletFromTracking, 
+    getAllWallets, 
+    getAllWalletsOfAGroup, 
+    getAllFromTable, 
+    checkIfGroupTracksWallet 
+} from './db';
+import { isValidEthereumAddress } from './auxFunctions';
+import { updateNotification } from './quickalerts';
 
-require("dotenv").config();
-const TelegramBot = require('node-telegram-bot-api');
-const {TELEGRAM_BOT_TOKEN} = process.env;
-const bot = new TelegramBot(TELEGRAM_BOT_TOKEN, {polling: true});
+const TELEGRAM_BOT_TOKEN: string = process.env.TELEGRAM_BOT_TOKEN!;
+const bot = new TelegramBot(TELEGRAM_BOT_TOKEN, { polling: true });
 
-const {initializeDatabase, addWalletToTrack, removeWalletFromTracking, getAllWallets, getAllWalletsOfAGroup, getAllFromTable, checkIfGroupTracksWallet} = require("./db");
-const {isValidEthereumAddress} = require("./auxFunctions");
-const {updateNotification} = require("./quickalerts");
+
 
 
 initializeDatabase();
 
-bot.onText(/\/start/, (msg) => {
+bot.onText(/\/start/, (msg: any) => {
     bot.sendMessage
     (
         msg.chat.id, 
@@ -22,7 +32,7 @@ bot.onText(/\/start/, (msg) => {
     );
 });
 
-bot.onText(/\/addwallet/, (msg) => {
+bot.onText(/\/addwallet/, (msg: any) => {
 
     console.log(msg)
     const textParts = msg.text.split(" ");
@@ -69,7 +79,7 @@ bot.onText(/\/addwallet/, (msg) => {
 
 });
 
-bot.onText(/\/removewallet/, (msg) => {
+bot.onText(/\/removewallet/, (msg: any) => {
 
     console.log(msg)
     const textParts = msg.text.split(" ");
@@ -110,7 +120,7 @@ bot.onText(/\/removewallet/, (msg) => {
 
 });
 
-bot.onText(/\/allwallets/, (msg) => {
+bot.onText(/\/allwallets/, (msg: any) => {
 
     console.log(msg)
     const groupId = msg.chat.id;
@@ -130,16 +140,16 @@ bot.onText(/\/allwallets/, (msg) => {
     });
 });
 
-bot.onText(/\/printtableonserver/, (msg) => {
+bot.onText(/\/printtableonserver/, (msg: any) => {
 
-    getAllFromTable("wallets", (wallets) => {
+    getAllFromTable("wallets", (wallets: any) => {
         console.log(wallets);
         bot.sendMessage(msg.chat.id, "table printed");
     });
 });
 
 
-bot.on('polling_error', (error) => {
+bot.on('polling_error', (error: any) => {
     console.log(error);  // Log the error
 });
 
