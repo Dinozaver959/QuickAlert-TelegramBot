@@ -50,7 +50,7 @@ app.post('/webhook', async (req: any, res: any) => {
   const valueHex = matchedTransactions[0].value;
   const valueDex = BigNumber.from(valueHex);  //parseInt(valueHex);
   var ethValueDecFormatted: string;
-  const minimumObservedETHTransfer: BigNumber = BigNumber.from(ethers.utils.formatEther(0.1));
+  const minimumObservedETHTransfer: BigNumber = BigNumber.from(ethers.utils.parseEther("0.1"));
 
   // give feedback on the data received
   res.sendStatus(200);
