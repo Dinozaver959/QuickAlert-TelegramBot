@@ -1,3 +1,4 @@
+import { ethers } from "ethers";
 import {Address} from "./customTypes"
 
 
@@ -10,31 +11,36 @@ export function isValidEthereumAddress(address: Address) {
 
 export function customFormat(tokenAmount: number, tokenDecimals: number){
 
-  const amountParts = tokenAmount.toString().split("e+");
-  const tokenWrittenDecimals = parseInt(amountParts[1]);
-  const amountBase = amountParts[0];
+  if(tokenAmount.toString().includes("e")){
+    const amountParts = tokenAmount.toString().split("e+");
+    const tokenWrittenDecimals = parseInt(amountParts[1]);
+    const amountBase = amountParts[0];
 
-  if(tokenDecimals == tokenWrittenDecimals){
+    if(tokenDecimals == tokenWrittenDecimals){
 
-    return amountBase.split(".")[0]
+      return amountBase.split(".")[0]
 
-  } else if (tokenDecimals > tokenWrittenDecimals){
+    } else if (tokenDecimals > tokenWrittenDecimals){
 
-    return "0"; // definitely less than 1....
+      return "0"; // definitely less than 1....
 
-  } else {
+    } else {
 
-    const decToAdd = tokenWrittenDecimals - tokenDecimals;
-    const parts = amountBase.split(".");
+      const decToAdd = tokenWrittenDecimals - tokenDecimals;
+      const parts = amountBase.split(".");
 
-    var semiReady = parts[0].concat(parts[1].slice(0, decToAdd))
+      var semiReady = parts[0].concat(parts[1].slice(0, decToAdd))
 
-    // need to add missing 0s
-    while(semiReady.length < 1 + decToAdd){
-      semiReady = semiReady.concat("0")
+      // need to add missing 0s
+      while(semiReady.length < 1 + decToAdd){
+        semiReady = semiReady.concat("0")
+      }
+
+      return semiReady;
     }
-
-    return semiReady;
+  } else {
+    // less decimals in the token (something like 8 or so)
+    return ethers.utils.formatUnits(tokenAmount, tokenDecimals);
   }
 
 }
