@@ -215,8 +215,12 @@ function sendTelegramNotificationForTransferedETH(chainId: number, from: Address
 
         ${ethValueDecFormatted} ETH
 
-        Tx: ${getScannerLink(chainId)}/tx/${tx_hash}
+        <a href="${getScannerLink(chainId)}/tx/${tx_hash}/">tx link      </a>
         `,
+
+        /*
+          Tx: ${getScannerLink(chainId)}/tx/${tx_hash}
+        */
         {
           disable_web_page_preview: true
         }
@@ -247,12 +251,18 @@ function sendTelegramNotificationForTransferedERC20(chainId: number, from: Addre
         FROM: ${from}
         TO:   ${to}
 
-        ${tokenDetails.tokenValueDecFormatted} ${tokenDetails.tokenName}($${tokenDetails.tokenSymbol})\n
+        <a href="${getScannerLink(chainId)}/tx/${tx_hash}/">tx link      </a>  ${tokenDetails.tokenAddress}
 
-        token address: ${tokenDetails.tokenAddress} \n
-
-        Tx: ${getScannerLink(chainId)}/tx/${tx_hash}
+        <a href="${getScannerLink(chainId)}/address/${tokenDetails.tokenAddress}/">contract link</a>  ${tokenDetails.tokenAddress}
         `,
+
+        /*
+          ${tokenDetails.tokenValueDecFormatted} ${tokenDetails.tokenName}($${tokenDetails.tokenSymbol})\n
+
+          token address: ${tokenDetails.tokenAddress} \n
+
+          Tx: ${getScannerLink(chainId)}/tx/${tx_hash}
+        */
         {
           disable_web_page_preview: true
         }
@@ -286,10 +296,18 @@ function sendTelegramNotificationForTokenBuySell(chainId: number, from: Address,
         ${ethValueDecFormatted} ETH
         ${tokenDetails.tokenValueDecFormatted} $${tokenDetails.tokenSymbol} \n
 
-        Tx: ${getScannerLink(chainId)}/tx/${tx_hash} \n
-        token address: ${tokenDetails.tokenAddress} \n
-        ${getScannerLink(chainId)}/address/${tokenDetails.tokenAddress}
+        <a href="${getScannerLink(chainId)}/tx/${tx_hash}/">tx link      </a>  ${tokenDetails.tokenAddress}
+
+        <a href="${getScannerLink(chainId)}/address/${tokenDetails.tokenAddress}/">contract link</a>  ${tokenDetails.tokenAddress}
         `,
+
+        /*
+          Tx: ${getScannerLink(chainId)}/tx/${tx_hash} \n
+
+          token address: ${tokenDetails.tokenAddress} \n
+          ${getScannerLink(chainId)}/address/${tokenDetails.tokenAddress}
+        */
+
         {
           disable_web_page_preview: true
         }
