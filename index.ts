@@ -2,15 +2,14 @@
 
 //  THIS FILE IS FOR THE NODE SERVER - RECEIVING QUICK ALERTS AND FORWARDING THEM TO TELEGRAM
 
-import { Address } from "./customTypes";
+
 import * as dotenv from "dotenv";
 dotenv.config();
 import express from "express";
-import { ethers } from "ethers";
+import { BigNumber, ethers } from "ethers";
 import TelegramBot from "node-telegram-bot-api";
 import ERC20ABI from './ABIs/ERC20.json'
-
-//import {getDestinationIdByName, updateNotification}  from "./quickalerts";
+import { Address, TokenDetails } from "./customTypes";
 import {getAllGroupsTrackingAWallet} from "./db";
 import {customFormat, AddCommasToNumericString} from "./auxFunctions";
 
@@ -18,12 +17,10 @@ const TELEGRAM_BOT_TOKEN: string = process.env.TELEGRAM_BOT_TOKEN!;
 const PORT: string = process.env.PORT!;
 const bot = new TelegramBot(TELEGRAM_BOT_TOKEN)
 
-
-
-
 const app = express();
-//app.use(express.json());
 app.use(express.json({limit: '50mb'}));   // need to increase the limit of payload for quicknode option 1 - block
+
+
 
 
 
@@ -33,13 +30,14 @@ app.post('/webhook', async (req: any, res: any) => {
   var buyBoolean: boolean = false;
   var tokenAmount: number = 0;
   var ethAmount: number = 0;
-  var tokenAddress: Address;
-  var tokenName: string;
-  var tokenSymbol: string;
-  var tokenDecimals: number = 0;
+  var tokenDetails: TokenDetails = {
+    tokenAddress: 'defaultAddress' as Address,
+    tokenName: 'defaultName',
+    tokenSymbol: 'defaultSymbol',
+    tokenDecimals: 0,
+    tokenValueDecFormatted: 'defaultValue'
+};
 
-  const provider = new ethers.providers.JsonRpcProvider(`https://mainnet.infura.io/v3/${process.env.INFURA_API_KEY}`)
-  //const provider = new ethers.providers.JsonRpcProvider(`https://goerli.infura.io/v3/${process.env.INFURA_API_KEY}`)
   console.log(req.body)
 
   // gather data
@@ -48,11 +46,17 @@ app.post('/webhook', async (req: any, res: any) => {
   const matchedReceipts = webhook.matchedReceipts;
   const from = matchedTransactions[0].from.toLowerCase();
   const to = matchedTransactions[0].to.toLowerCase();
-  var walletObserved;
   const tx_hash = matchedTransactions[0].hash;
   const valueHex = matchedTransactions[0].value;
-  const valueDex = parseInt(valueHex);
+  const valueDex = BigNumber.from(valueHex);  //parseInt(valueHex);
   var ethValueDecFormatted: string;
+  const minimumObservedETHTransfer: BigNumber = BigNumber.from(ethers.utils.formatEther(0.1));
+
+  // give feedback on the data received
+  res.sendStatus(200);
+
+  const chainId = parseInt(matchedTransactions[0].chainId);                                                                       // use this + create a function for the provider and for the scannerLink
+  console.log(`chaindId:     ${chainId}`)
 
   const logs = matchedReceipts[0].logs;
   console.log(logs)
@@ -64,13 +68,56 @@ app.post('/webhook', async (req: any, res: any) => {
   }
 
   if(!allFunctionSignatures.includes("0xd78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d5e3d130840159d822")){
-    // skip this Transaction...
-    res.sendStatus(200);
-    console.log("no swap detected... skipping this transaction")
+
+    console.log("no swap detected... transfer maybe?")
+
+    console.log(`valueDex:                     ${valueDex}`)
+    console.log(`minimumObservedETHTransfer:   ${minimumObservedETHTransfer}`)
+    if(logs.length == 0 && valueDex > minimumObservedETHTransfer){
+
+      console.log("ETH transfer detected")
+
+      // Send alerts for ETH transfered
+      sendTelegramNotificationForTransferedETH(chainId, from, to, valueDex, tx_hash)
+    } 
+
+    // ADD ALERT FOR TRANSFER OF ERC20
+    if(logs.length == 1 && logs.topics[0] == "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"){
+
+      console.log("ERC20 transfer detected")
+
+      tokenDetails = await getTokenDetails(chainId, logs[0].address, tokenAmount);
+
+      // send alert for ERC20 transfer
+      sendTelegramNotificationForTransferedERC20(chainId, from, to, tokenDetails, tx_hash)
+    }
+
+    return 0;
 
   } else {
 
-    // for all the logs...
+    // Get ERC20 token contract + token details
+    for(let i = 0; i < logs.length; i++){
+
+      const functionSignature = logs[i].topics[0];
+
+      if(functionSignature == "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"){ // transfer
+
+        if(logs[i].address != getWrappedNativeToken(chainId)){ // WETH or wrapped native token
+        
+          tokenDetails = await getTokenDetails(chainId, logs[i].address, tokenAmount);
+          break;
+        }
+      }
+
+      // ABORT 
+      if(i == (logs.length - 1) && tokenDetails.tokenDecimals == 0){
+        console.log("something is not ok... there is no Token Transfer evet in logs with Swap event... ABORT")
+        return -1;
+      }
+    }
+
+    // get Swap details
     for(let i = 0; i < logs.length; i++){
 
       const functionSignature = logs[i].topics[0];
@@ -81,7 +128,6 @@ app.post('/webhook', async (req: any, res: any) => {
         console.log("uniswap V2 swap...")
 
         const data = logs[i].data;
-        
         const decodedData = ethers.utils.defaultAbiCoder.decode(
           ['uint256', 'uint256', 'uint256', 'uint256'],
           data
@@ -92,7 +138,7 @@ app.post('/webhook', async (req: any, res: any) => {
         const amount0Out = parseInt(decodedData[2])
         const amount1Out = parseInt(decodedData[3])
         
-        if(valueDex != 0){
+        if(valueDex.gt(BigNumber.from(0))){
           // BUY
           buyBoolean = true;
           // assume it is TOKEN-ETH
@@ -109,36 +155,11 @@ app.post('/webhook', async (req: any, res: any) => {
         console.log(`token amount:     ${tokenAmount}`)
         console.log(`eth amount:       ${ethAmount}`)
 
-      } // add more options - routers from kyberswap, 1inch, 0x etc....
+      } 
+
+      // add more options - routers from kyberswap, 1inch, 0x etc....
       // checking the transfer event (WETH and token) - option 2 (should be universal across any router)
-      else if(functionSignature == "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"){
-
-        const address = logs[i].address;
-
-        if(address != "0xb4fbf271143f4fbf7b91a5ded31805e42b2208d6"){  // WETH on Goerli - adjust as needed based on the chain
-        
-          //console.log("Transfer event occurred...")
-          tokenAddress = address;
-
-          // can now also get the token ticker and other token stuff
-          const tokenContract =  new ethers.Contract(tokenAddress, ERC20ABI, provider);
-          tokenName = await tokenContract.name();
-          tokenSymbol = await tokenContract.symbol();
-          tokenDecimals = parseInt(await tokenContract.decimals());
-          
-          //console.log(`tokenName:          ${tokenName}`)
-          //console.log(`tokenSymbol:        ${tokenSymbol}`)
-          //console.log(`tokenDecimals:      ${tokenDecimals}`)
-        }
-
-      }
     }
-    
-
-    // give feedback on the data received
-    res.sendStatus(200);
-    console.log("input ok")
-
 
     // we plan on cutting 12 digits off first...
     if(ethAmount.toString().length <= 12){
@@ -150,47 +171,13 @@ app.post('/webhook', async (req: any, res: any) => {
 
       ethValueDecFormatted = ethers.utils.formatUnits(ethAmount.toString().slice(0,-12), 6)  // remove last 12 digits first - to overcome the overflow
       console.log(`ethValueDecFormatted:        ${ethValueDecFormatted}`)
-      var tokenValueDecFormatted = customFormat(tokenAmount, tokenDecimals)
-      console.log(`tokenValueDecFormatted:      ${tokenValueDecFormatted}`)
-      tokenValueDecFormatted = AddCommasToNumericString(tokenValueDecFormatted)
-      console.log(`tokenValueDecFormatted:      ${tokenValueDecFormatted}`)
-
-
-
-      // TELEGRAM NOTIFICATION
       
-      // get all the groups tracking this walet, then send a message to each of these groups
-      console.log(`wallet obaserved:   ${from}`)
-      getAllGroupsTrackingAWallet(from, (groups: any) => {
+      // TELEGRAM NOTIFICATION
+      sendTelegramNotificationForTokenBuySell(chainId, from, buyBoolean, ethValueDecFormatted, tokenDetails, tx_hash)
 
-        console.log(`groups tracking the wallet:     ${groups}`)
-
-        for(let i = 0; i < groups.length; i++){
-
-          // Sends text to the each groupId
-          bot.sendMessage(
-            groups[i].group_id,
-            `
-            ${buyBoolean ? "  🔥️️️️️️🔥️️️️️️🔥️️️️️️ TOKEN BUY 🔥️️️️️️🔥️️️️️️🔥️️️️️️" : "😭️️️️️️ TOKEN SELL 😭️️️️️️"}
-
-            ${buyBoolean ? `BUYER: ${from}` : `SELLER: ${from}`}
-
-            ${tokenName}($${tokenSymbol})\n
-            ${ethValueDecFormatted} ETH
-            ${tokenValueDecFormatted} $${tokenSymbol} \n
-
-            Tx: https://etherscan.io/tx/${tx_hash} \n
-            token address: ${tokenAddress} \n
-            https://etherscan.io/address/${tokenAddress}
-            `,
-            {
-              disable_web_page_preview: true
-            }
-          );   
-
-        }
-      })
     }
+
+    console.log("finished processing swap")
   }
 });
 
@@ -204,3 +191,190 @@ app.listen(PORT, () => {
 
 
 
+
+function sendTelegramNotificationForTransferedETH(chainId: number, from: Address, to: Address, valueDex: BigNumber, tx_hash: string){
+
+  const ethValueDecFormatted: string = ethers.utils.formatEther(valueDex);
+  
+  // get all the groups tracking this walet, then send a message to each of these groups
+  console.log(`wallet obaserved:   ${from}`)
+  getAllGroupsTrackingAWallet(from, (groups: any) => {
+
+    console.log(`groups tracking the wallet:     ${groups}`)
+
+    for(let i = 0; i < groups.length; i++){
+
+      // Sends text to the each groupId
+      bot.sendMessage(
+        groups[i].group_id,
+        `
+        🤔️️️️️️ ETH TRANSFERED OUT 🤔️️️️️️
+        
+        FROM: ${from}
+        TO:   ${to}
+
+        ${ethValueDecFormatted} ETH
+
+        Tx: ${getScannerLink(chainId)}/tx/${tx_hash}
+        `,
+        {
+          disable_web_page_preview: true
+        }
+      );   
+
+    }
+  })
+  
+}
+
+
+function sendTelegramNotificationForTransferedERC20(chainId: number, from: Address, to: Address, tokenDetails: TokenDetails, tx_hash: string){
+  
+  // get all the groups tracking this walet, then send a message to each of these groups
+  console.log(`wallet obaserved:   ${from}`)
+  getAllGroupsTrackingAWallet(from, (groups: any) => {
+
+    console.log(`groups tracking the wallet:     ${groups}`)
+
+    for(let i = 0; i < groups.length; i++){
+
+      // Sends text to the each groupId
+      bot.sendMessage(
+        groups[i].group_id,
+        `
+        🤔️️️️️️ ERC20 TRANSFERED OUT 🤔️️️️️️
+        
+        FROM: ${from}
+        TO:   ${to}
+
+        ${tokenDetails.tokenValueDecFormatted} ${tokenDetails.tokenName}($${tokenDetails.tokenSymbol})\n
+
+        token address: ${tokenDetails.tokenAddress} \n
+
+        Tx: ${getScannerLink(chainId)}/tx/${tx_hash}
+        `,
+        {
+          disable_web_page_preview: true
+        }
+      );   
+
+    }
+  })
+  
+}
+
+
+function sendTelegramNotificationForTokenBuySell(chainId: number, from: Address, buyBoolean: boolean, ethValueDecFormatted: string, tokenDetails: TokenDetails, tx_hash: string){
+
+  // get all the groups tracking this walet, then send a message to each of these groups
+  console.log(`wallet obaserved:   ${from}`)
+  getAllGroupsTrackingAWallet(from, (groups: any) => {
+
+    console.log(`groups tracking the wallet:     ${groups}`)
+
+    for(let i = 0; i < groups.length; i++){
+
+      // Sends text to the each groupId
+      bot.sendMessage(
+        groups[i].group_id,
+        `
+        ${buyBoolean ? "  🔥️️️️️️🔥️️️️️️🔥️️️️️️ TOKEN BUY 🔥️️️️️️🔥️️️️️️🔥️️️️️️" : "😭️️️️️️ TOKEN SELL 😭️️️️️️"}
+
+        ${buyBoolean ? `BUYER: ${from}` : `SELLER: ${from}`}
+
+        ${tokenDetails.tokenName}($${tokenDetails.tokenSymbol})\n
+        ${ethValueDecFormatted} ETH
+        ${tokenDetails.tokenValueDecFormatted} $${tokenDetails.tokenSymbol} \n
+
+        Tx: ${getScannerLink(chainId)}/tx/${tx_hash} \n
+        token address: ${tokenDetails.tokenAddress} \n
+        ${getScannerLink(chainId)}/address/${tokenDetails.tokenAddress}
+        `,
+        {
+          disable_web_page_preview: true
+        }
+      );   
+
+    }
+  })
+}
+
+
+
+
+
+async function getTokenDetails(chainId: number, tokenAddress: Address, tokenAmount: number){
+
+
+  const provider = getProviderEVM(chainId);
+
+  // can now also get the token ticker and other token stuff
+  const tokenContract =  new ethers.Contract(tokenAddress, ERC20ABI, provider);
+  const tokenName = await tokenContract.name();
+  const tokenSymbol = await tokenContract.symbol();
+  const tokenDecimals = parseInt(await tokenContract.decimals());
+    
+  //console.log(`tokenName:          ${tokenName}`)
+  //console.log(`tokenSymbol:        ${tokenSymbol}`)
+  //console.log(`tokenDecimals:      ${tokenDecimals}`)
+
+  var tokenValueDecFormatted = customFormat(tokenAmount, tokenDecimals)
+  console.log(`tokenValueDecFormatted:      ${tokenValueDecFormatted}`)
+  tokenValueDecFormatted = AddCommasToNumericString(tokenValueDecFormatted)
+  console.log(`tokenValueDecFormatted:      ${tokenValueDecFormatted}`)
+
+
+
+  return {
+    tokenAddress: tokenAddress,
+    tokenName: tokenName,
+    tokenSymbol: tokenSymbol,
+    tokenDecimals: tokenDecimals,
+    tokenValueDecFormatted: tokenValueDecFormatted
+  }
+    
+
+} 
+
+
+function getProviderEVM(chainId: number){
+
+  switch(chainId){
+    case 1:
+      return new ethers.providers.JsonRpcProvider(`https://mainnet.infura.io/v3/${process.env.INFURA_API_KEY}`)
+
+    case 5:
+      return new ethers.providers.JsonRpcProvider(`https://goerli.infura.io/v3/${process.env.INFURA_API_KEY}`);
+
+    default: // mainnet
+      return new ethers.providers.JsonRpcProvider(`https://mainnet.infura.io/v3/${process.env.INFURA_API_KEY}`)
+  }
+}
+
+
+function getScannerLink(chainId: number){
+  switch(chainId){
+    case 1:
+      return "https://etherscan.io/"
+
+    case 5:
+      return "https://goerli.etherscan.io/"
+
+    default: //mainnnet
+    return "https://etherscan.io/"
+  }
+}
+
+
+function getWrappedNativeToken(chainId: number){
+  switch(chainId){
+    case 1:
+      return "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"
+
+    case 5:
+      return "0xb4fbf271143f4fbf7b91a5ded31805e42b2208d6"
+
+    default: //mainnnet
+    return "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"
+  }
+}

@@ -10,6 +10,21 @@ function isAddress(address: string): address is Address {
 
 
 
+export type TokenDetails = {
+  tokenAddress: Address,
+  tokenName: string,
+  tokenSymbol: string,
+  tokenDecimals: number,
+  tokenValueDecFormatted: string
+};
+
+
+
+
+
+
+
+// SQL Database Types
 
 
 export type WalletsRow_only_WA = {
