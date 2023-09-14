@@ -92,8 +92,6 @@ app.post('/webhook', async (req: any, res: any) => {
       sendTelegramNotificationForTransferedERC20(chainId, from, to, tokenDetails, tx_hash)
     }
 
-    return 0;
-
   } else {
 
     // Get ERC20 token contract + token details
