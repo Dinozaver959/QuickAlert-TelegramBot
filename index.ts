@@ -71,6 +71,7 @@ app.post('/webhook', async (req: any, res: any) => {
 
     console.log("no swap detected... transfer maybe?")
 
+    console.log(`logs length:                  ${logs.length}`)
     console.log(`valueDex:                     ${valueDex}`)
     console.log(`minimumObservedETHTransfer:   ${minimumObservedETHTransfer}`)
     if(logs.length == 0 && valueDex > minimumObservedETHTransfer){
@@ -82,7 +83,7 @@ app.post('/webhook', async (req: any, res: any) => {
     } 
 
     // ADD ALERT FOR TRANSFER OF ERC20
-    if(logs.length == 1 && logs.topics[0] == "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"){
+    if(logs.length == 1 && logs[0].topics[0] == "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"){
 
       console.log("ERC20 transfer detected")
 
