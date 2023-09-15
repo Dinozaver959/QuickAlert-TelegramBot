@@ -226,14 +226,14 @@ function sendTelegramNotificationForTransferedETH(chainId: number, from: Address
       bot.sendMessage(
         groups[i].group_id,
         `
-        🤔️️️️️️ ETH TRANSFERED OUT 🤔️️️️️️
-        
-        FROM: ${from}
-        TO:   ${to}
+🤔️️️️️️ ETH TRANSFERED OUT 🤔️️️️️️
 
-        ${ethValueDecFormatted} ETH
+FROM: ${from}
+TO:   ${to}
 
-        <a href="${getScannerLink(chainId)}/tx/${tx_hash}/">tx link      </a>
+${ethValueDecFormatted} ETH
+
+<a href="${getScannerLink(chainId)}/tx/${tx_hash}/">tx link      </a>
         `,
 
         /*
@@ -265,14 +265,13 @@ function sendTelegramNotificationForTransferedERC20(chainId: number, from: Addre
       bot.sendMessage(
         groups[i].group_id,
         `
-        🤔️️️️️️ ERC20 TRANSFERED OUT 🤔️️️️️️
-        
-        FROM: ${from}
-        TO:   ${to}
+🤔️️️️️️ ERC20 TRANSFERED OUT 🤔️️️️️️
 
-        <a href="${getScannerLink(chainId)}/tx/${tx_hash}/">tx link      </a>  ${tokenDetails.tokenAddress}
+FROM: ${from}
+TO:   ${to}
 
-        <a href="${getScannerLink(chainId)}/address/${tokenDetails.tokenAddress}/">contract link</a>  ${tokenDetails.tokenAddress}
+${tokenDetails.tokenAddress}
+<a href="${getScannerLink(chainId)}/tx/${tx_hash}/">tx link</a> | <a href="${getScannerLink(chainId)}/address/${tokenDetails.tokenAddress}/">contract link</a>
         `,
 
         /*
