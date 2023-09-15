@@ -140,15 +140,31 @@ app.post('/webhook', async (req: any, res: any) => {
         if(valueDex.gt(BigNumber.from(0))){
           // BUY
           buyBoolean = true;
-          // assume it is TOKEN-ETH
-          tokenAmount = amount0Out;
-          ethAmount = amount1In;
+          
+          if(tokenDetails.tokenAddress < getWrappedNativeToken(chainId)){
+            // ERC20 goes first
+            tokenAmount = amount0Out;
+            ethAmount = amount1In;
+          } else {
+            // ETH goes first
+            tokenAmount = amount1Out;
+            ethAmount = amount0In;
+          }
+
         } else {
           // SELL
           buyBoolean = false;
-          // assume it is TOKEN-ETH
-          tokenAmount = amount0In;
-          ethAmount = amount1Out;
+
+          if(tokenDetails.tokenAddress < getWrappedNativeToken(chainId)){
+            // ERC20 goes first
+            tokenAmount = amount0In;
+            ethAmount = amount1Out;
+          } else {
+            // ETH goes first
+            tokenAmount = amount1In;
+            ethAmount = amount0Out;
+          }
+
         }
 
         console.log(`token amount:     ${tokenAmount}`)
@@ -173,6 +189,9 @@ app.post('/webhook', async (req: any, res: any) => {
       
       // TELEGRAM NOTIFICATION
       sendTelegramNotificationForTokenBuySell(chainId, from, buyBoolean, ethValueDecFormatted, tokenDetails, tx_hash)
+
+      // PIPE contract address into the @ProficyPriceBot bot, make sure this bot is added to the group
+      sendTelegramNotificationForContractPiping(from, tokenDetails.tokenAddress)
 
     }
 
@@ -289,17 +308,16 @@ function sendTelegramNotificationForTokenBuySell(chainId: number, from: Address,
       bot.sendMessage(
         groups[i].group_id,
         `
-        ${buyBoolean ? "  🔥️️️️️️🔥️️️️️️🔥️️️️️️ TOKEN BUY 🔥️️️️️️🔥️️️️️️🔥️️️️️️" : "😭️️️️️️ TOKEN SELL 😭️️️️️️"}
+${buyBoolean ? "  🔥️️️️️️🔥️️️️️️🔥️️️️️️ TOKEN BUY 🔥️️️️️️🔥️️️️️️🔥️️️️️️" : "😭️️️️️️ TOKEN SELL 😭️️️️️️"}
 
-        ${buyBoolean ? `BUYER: ${from}` : `SELLER: ${from}`}
+${buyBoolean ? `BUYER: ${from}` : `SELLER: ${from}`}
+${tokenDetails.tokenName}($${tokenDetails.tokenSymbol})
 
-        ${tokenDetails.tokenName}($${tokenDetails.tokenSymbol})\n
-        ${ethValueDecFormatted} ETH
-        ${tokenDetails.tokenValueDecFormatted} $${tokenDetails.tokenSymbol} \n
+${ethValueDecFormatted} ETH
+${tokenDetails.tokenValueDecFormatted} $${tokenDetails.tokenSymbol}
 
-        <a href="${getScannerLink(chainId)}/tx/${tx_hash}/">tx link      </a>  ${tokenDetails.tokenAddress}
-
-        <a href="${getScannerLink(chainId)}/address/${tokenDetails.tokenAddress}/">contract link</a>  ${tokenDetails.tokenAddress}
+${tokenDetails.tokenAddress}
+<a href="${getScannerLink(chainId)}/tx/${tx_hash}/">tx link</a> | <a href="${getScannerLink(chainId)}/address/${tokenDetails.tokenAddress}/">contract link</a> 
         `,
 
         /*
@@ -319,6 +337,26 @@ function sendTelegramNotificationForTokenBuySell(chainId: number, from: Address,
   })
 }
 
+function sendTelegramNotificationForContractPiping(from: Address, tokenAddress: Address){
+
+    // get all the groups tracking this walet, then send a message to each of these groups
+    console.log(`wallet obaserved:   ${from}`)
+    getAllGroupsTrackingAWallet(from, (groups: any) => {
+  
+      console.log(`groups tracking the wallet:     ${groups}`)
+  
+      for(let i = 0; i < groups.length; i++){
+  
+        // Sends text to the each groupId
+        bot.sendMessage(
+          groups[i].group_id,
+          tokenAddress
+        );   
+  
+      }
+    })
+
+}
 
 
 
