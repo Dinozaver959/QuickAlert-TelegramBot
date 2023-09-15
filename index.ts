@@ -221,7 +221,8 @@ function sendTelegramNotificationForTransferedETH(chainId: number, from: Address
           Tx: ${getScannerLink(chainId)}/tx/${tx_hash}
         */
         {
-          disable_web_page_preview: true
+          disable_web_page_preview: true,
+          parse_mode: "HTML"
         }
       );   
 
@@ -263,7 +264,8 @@ function sendTelegramNotificationForTransferedERC20(chainId: number, from: Addre
           Tx: ${getScannerLink(chainId)}/tx/${tx_hash}
         */
         {
-          disable_web_page_preview: true
+          disable_web_page_preview: true,
+          parse_mode: "HTML"
         }
       );   
 
@@ -308,7 +310,8 @@ function sendTelegramNotificationForTokenBuySell(chainId: number, from: Address,
         */
 
         {
-          disable_web_page_preview: true
+          disable_web_page_preview: true,
+          parse_mode: "HTML"
         }
       );   
 
